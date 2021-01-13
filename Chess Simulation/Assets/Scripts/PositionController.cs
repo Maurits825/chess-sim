@@ -68,14 +68,30 @@ public class PositionController : MonoBehaviour
     private List<Vector3> cameraPositions = new List<Vector3>();
     public int totalCameraPositions;
 
+    private List<(PieceColor, Pieces)> allPieces = new List<(PieceColor, Pieces)>();
+    private int currentPieceIndex = 0;
+    private float pieceYOffset = 0;
+
+    private enum State
+    {
+        Idle,
+        Init,
+        Generating,
+        Done,
+    }
+
+    private State state;
+
     // Start is called before the first frame update
     void Start()
     {
         chessCamTransform = chessCamera.GetComponent<Transform>();
 
         InitializePiecesDict();
+        PopulateAllPieces();
         PopulateCameraPositions(totalCameraPositions);
-        SetupSinglePiece(PieceColor.white, Pieces.Pawn);
+
+        state = State.Idle;
     }
 
     // Update is called once per frame
@@ -98,6 +114,17 @@ public class PositionController : MonoBehaviour
         }
     }
 
+    private void PopulateAllPieces()
+    {
+        foreach (PieceColor color in Enum.GetValues(typeof(PieceColor)))
+        {
+            foreach (Pieces piece in Enum.GetValues(typeof(Pieces)))
+            {
+                allPieces.Add((color, piece));
+            }
+        }
+    }
+
     private void resetAvailableSquares()
     {
         availableSquares.Clear();
@@ -116,6 +143,8 @@ public class PositionController : MonoBehaviour
         {
             Destroy(piece);
         }
+
+        piecesOnBoard.Clear();
     }
 
     private void ClearBoardPosition()
@@ -168,6 +197,7 @@ public class PositionController : MonoBehaviour
                 break;
         }
         piecesOnBoard.Add(pieceObj);
+        pieceYOffset = pieceObj.GetComponent<MeshFilter>().mesh.bounds.size.y;
 
         PieceInfo pieceInfo = new PieceInfo(piece, color, location);
         boardPosition.Add(pieceInfo);
@@ -234,8 +264,8 @@ public class PositionController : MonoBehaviour
         float xzEnd = -xzStart;
         float dxz = (xzEnd - xzStart) / (num-1);
 
-        float yStart = 1.5F;
-        float yEnd = 2.5F;
+        float yStart = 2.0F;
+        float yEnd = 3.0F;
         float dy = (yEnd - yStart) / (num-1);
 
         for (float x = xzStart; x <= xzEnd; x += dxz)
@@ -256,40 +286,55 @@ public class PositionController : MonoBehaviour
         if (color == PieceColor.white)
         {
             singlePieceName = "white_";
-            switch (piece)
-            {
-                case Pieces.Pawn:
-                    singlePieceName += "pawn_";
-                    SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
-                    break;
+        }
+        else
+        {
+            singlePieceName = "black_";
+        }
 
-                case Pieces.Knight:
-                    break;
-                case Pieces.Bishop:
-                    break;
-                case Pieces.Rook:
-                    break;
-                case Pieces.Queen:
-                    break;
-                case Pieces.King:
-                    break;
-                default:
-                    break;
-            }
+        switch (piece)
+        {
+            case Pieces.Pawn:
+                singlePieceName += "pawn_";
+                SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
+                break;
+
+            case Pieces.Knight:
+                singlePieceName += "knight_";
+                SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
+                break;
+            case Pieces.Bishop:
+                singlePieceName += "bishop_";
+                SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
+                break;
+            case Pieces.Rook:
+                singlePieceName += "rook_";
+                SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
+                break;
+            case Pieces.Queen:
+                singlePieceName += "queen_";
+                SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
+                break;
+            case Pieces.King:
+                singlePieceName += "king_";
+                SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
+                break;
+            default:
+                break;
         }
     }
 
     private void SinglePiece(int count, int width, int height)
     {
-        //set up camera
         if (count >= cameraPositions.Count)
         {
             imageCount = totalImagesCount;
         }
         else
         {
+            //set up camera
             chessCamTransform.position = cameraPositions[count];
-            chessCamTransform.LookAt(piecesOnBoard[0].transform);
+            chessCamTransform.LookAt(piecesOnBoard[0].transform.position + new Vector3(0, pieceYOffset * 20.0F, 0));
 
             //randomize board pos, maybe also if board incldued or not
             //rand(0,1); if 1: board.y = -1//aka hide, white background
@@ -308,20 +353,45 @@ public class PositionController : MonoBehaviour
         }
         else
         {
-            if (imageCount < totalImagesCount)
+            if (state == State.Idle)
             {
-                SinglePiece(imageCount, imageWidth, imageHeight);
-                imageCount++;
-
-                if (imageCount % 100 == 0)
+                (PieceColor color, Pieces piece) = allPieces[currentPieceIndex];
+                SetupSinglePiece(color, piece);
+                state = State.Generating;
+            }
+            if (state == State.Generating)
+            {
+                if (imageCount < totalImagesCount)
                 {
-                    Debug.Log("Count: " + imageCount.ToString());
+                    SinglePiece(imageCount, imageWidth, imageHeight);
+                    imageCount++;
+
+                    if (imageCount % 100 == 0)
+                    {
+                        Debug.Log("Count: " + imageCount.ToString());
+                    }
+                }
+                else
+                {
+                    currentPieceIndex++;
+                    if (currentPieceIndex >= allPieces.Count)
+                    {
+                        Debug.Log("All Done");
+                        state = State.Done;
+                    }
+                    else
+                    {
+                        ResetBoard();
+                        frameCount = 0;
+                        imageCount = 0;
+                        state = State.Idle;
+                    }
+                    
                 }
             }
-            else if (!isDataExported)
+            if (state == State.Done)
             {
-                Debug.Log("Done!");
-                isDataExported = true;
+                ;
             }
         }
     }
