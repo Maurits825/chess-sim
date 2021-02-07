@@ -5,14 +5,16 @@ using UnityEngine;
 
 public class PositionController : MonoBehaviour
 {
-    private const int totalPieces = 6;
+    private const int totalPieces = 6+1;
     private const int chessBoardWidth = 8;
     private const int chessBoardHeight = 8;
 
     public GameObject[] blackGameObj = new GameObject[totalPieces];
     public GameObject[] whiteGameObj = new GameObject[totalPieces];
     public GameObject chessBoard;
+    public GameObject backPlane;
     public Camera chessCamera;
+    public Transform spawner;
     private Transform chessCamTransform;
 
     private enum Pieces
@@ -23,6 +25,7 @@ public class PositionController : MonoBehaviour
         Rook,
         Queen,
         King,
+        Empty,
     }
 
     private enum PieceColor
@@ -188,10 +191,10 @@ public class PositionController : MonoBehaviour
         switch (color)
         {
             case PieceColor.white:
-                pieceObj = Instantiate(whitePieces[piece], location, Quaternion.identity, chessBoard.transform);
+                pieceObj = Instantiate(whitePieces[piece], location, Quaternion.identity, spawner);
                 break;
             case PieceColor.black:
-                pieceObj = Instantiate(blackPieces[piece], location, Quaternion.identity, chessBoard.transform);
+                pieceObj = Instantiate(blackPieces[piece], location, Quaternion.identity, spawner);
                 break;
             default:
                 break;
@@ -319,6 +322,10 @@ public class PositionController : MonoBehaviour
                 singlePieceName += "king_";
                 SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
                 break;
+            case Pieces.Empty:
+                singlePieceName = "empty_";
+                SpawnPiece(piece, color, new Vector3(0, yOffset, 0));
+                break;
             default:
                 break;
         }
@@ -334,12 +341,21 @@ public class PositionController : MonoBehaviour
         {
             //set up camera
             chessCamTransform.position = cameraPositions[count];
-            chessCamTransform.LookAt(piecesOnBoard[0].transform.position + new Vector3(0, pieceYOffset * 20.0F, 0));
+            //chessCamTransform.LookAt(piecesOnBoard[0].transform.position + new Vector3(0, pieceYOffset * 20.0F, 0));
+            //chessCamTransform.LookAt(Vector3.down);
 
-            //randomize board pos, maybe also if board incldued or not
-            //rand(0,1); if 1: board.y = -1//aka hide, white background
-            //else board.pos = vec3(0,0,0) + vec3(rand(-1,1))
-
+            int board = UnityEngine.Random.Range(0, 2);
+            board = 1;
+            if (board == 0)
+            {
+                backPlane.transform.position = new Vector3(0, 0, 0);
+                chessBoard.transform.position = new Vector3(0, -1, 0);
+            }
+            else
+            {
+                backPlane.transform.position = new Vector3(0, -1, 0);
+                chessBoard.transform.position = new Vector3(UnityEngine.Random.Range(0.0F, 1.0F), -0.35F, UnityEngine.Random.Range(0.0F, 1.0F));
+            }
             string imageName = singlePieceName + count.ToString();
             ScreenshotHandler.TakeScreenshot(width, height, imageName);
         }
